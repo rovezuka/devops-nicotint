@@ -78,16 +78,32 @@ pid 2032, после смотрим uid пользователя rvetoshkin че
 
 ### Шаг 3.1. Создание cgroup
 📝 Записать: где создал cgroup, какие контроллеры пришлось включить и почему; как поместил туда процесс.
+проверил pid bash на хосте командой NSPID=$(pgrep -P $(pgrep -n unshare)); echo $NSPID
+67836
+создал cgroup командой sudo mkdir /sys/fs/cgroup/mydocker 
+отправил pid процесса в cgroup командой echo $NSPID | sudo tee /sys/fs/cgroup/mydocker/cgroup.procs
+процесс был убит по оом киллед и я проверил это через команду cat $CG/memory.events
 
 ### Шаг 3.2. Память и OOM
-📝 Записать: какой лимит поставил; какой запрос к `/eat` сделал; что произошло с процессом; где это видно (файлы cgroup, `dmesg`/журнал). Скриншот OOM. Связь с `OOMKilled` в Kubernetes.
+- поставил лимит cgroup через команду echo 100M | sudo tee $CG/memory.max и начал есть
+- curl -s "localhost:8080/eat?mb=30"
+- после каждого куска увеличивается значение используемой памяти для cgroup cat $CG/memory.current
 
 ### Шаг 3.3. CPU и throttling
-📝 Записать: какой лимит и в каком формате; поведение `/burn` (сколько CPU реально потребляет); какие счётчики в статистике cgroup выросли. Скриншот throttling. Чем throttling опасен для latency.
+навесил лимит на пол ядра 
+echo "50000 100000" | sudo tee $CG/cpu.max
+запустил сжение процессора curl -s localhost:8080/burn
+посмотрел стату через top для api и увидел что он занимает ровно 50% cpu
 
 ### Шаг 3.4. pids.max и форк-бомба
-📝 Записать: значение лимита; команда `stress-ng`; что показали счётчики/ошибки.
 
+- установил лимит через echo 20 | sudo tee $CG/pids.max
+- запустил форк бомбу stress-ng --fork 8 --fork-max 50 --timeout 60s --metrics-brief 
+еще она не запускалась пока я не перешел в каталого /tmp на ВМ
+- после запуска форк-бомбы число активных процессов в cgroup остается на уровне лимита
+- но pids.events растет
+- если попытаться отправить запрос в api пока работает форк бомба то получим ошибку
+- bash: fork: retry: Resource temporarily unavailable
 ---
 
 ## Часть 4 — Права
