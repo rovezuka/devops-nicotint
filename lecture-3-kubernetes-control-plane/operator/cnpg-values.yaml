@@ -1,0 +1,12 @@
+image:
+  repository: registry.shop.local/cloudnative-pg
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+podLabels:
+  app.kubernetes.io/managed-by: Helm

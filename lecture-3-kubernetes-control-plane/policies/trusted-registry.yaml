@@ -1,0 +1,33 @@
+
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: trusted-registry
+  annotations:
+    policies.kyverno.io/description: "Allow container images only from registry.shop.local."
+spec:
+  background: true
+  rules:
+    - name: check-image-registry
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+      validate:
+        failureAction: Enforce
+        message: "All container images must use the registry.shop.local/ prefix."
+        pattern:
+          spec:
+            containers:
+              - image: "registry.shop.local/*"
+            =(initContainers):
+              - image: "registry.shop.local/*"
+            =(ephemeralContainers):
+              - image: "registry.shop.local/*"

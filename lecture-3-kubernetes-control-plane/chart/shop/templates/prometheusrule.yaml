@@ -1,0 +1,47 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Release.Name }}-shop
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: shop
+      rules:
+        - alert: ShopAPIHighErrorRate
+          expr: |
+            sum(rate(http_requests_total{namespace="shop",code=~"5..",handler!="health"}[2m]))
+            /
+            sum(rate(http_requests_total{namespace="shop",handler!="health"}[2m]))
+            > 0.05
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Высокая доля HTTP 5xx в API"
+            description: "Более 5% пользовательских запросов завершаются ошибкой 5xx."
+
+        - alert: ShopWorkerStalled
+          expr: |
+            max by (namespace) (shop_worker_pending_orders{namespace="shop"}) > 0
+            and
+            (
+              time() - max by (namespace) (shop_worker_last_success_timestamp_seconds{namespace="shop"})
+              > 300
+            )
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Worker долго не обрабатывает заказы"
+            description: "Есть ожидающие заказы, но ни один worker не сообщал об успешной итерации более 5 минут."
+
+        - alert: ShopWorkerUnavailable
+          expr: |
+            kube_deployment_status_replicas_available{namespace="shop",deployment="shop-worker"} < 1
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Worker недоступен"
+            description: "У Deployment shop-worker нет ни одной доступной реплики — заказы не обрабатываются."
