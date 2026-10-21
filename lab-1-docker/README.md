@@ -10,7 +10,7 @@
 
 ## Часть 0 — Сервис `api`
 
-![api meme](lab-1-docker/api meme.jpg)
+![api meme.jpg](api%20meme.jpg)
 
 какие ручки сделаны: 
 
@@ -23,8 +23,7 @@ GET `/burn` - нагружает одно ядро CPU в бесконечном
 чтобы собрать бинарник на линукс - открыл терминал виртуалки, перешел к папке приложения и ввел команду для сборки на go: `GOOS=linux GOARCH=arm64 go build -o api .`
 
 
-![api code](lab-1-docker/api code.png)
-
+![api code.png](api%20code.png)
 
 перед этим надо было го установить на виртуалку
 
@@ -34,7 +33,7 @@ GET `/burn` - нагружает одно ядро CPU в бесконечном
 
 процесс в `ps`
 
-![процесс в ps](lab-1-docker/нашел процесс через ps.png)
+![нашел процесс через ps.png](%D0%BD%D0%B0%D1%88%D0%B5%D0%BB%20%D0%BF%D1%80%D0%BE%D1%86%D0%B5%D1%81%D1%81%20%D1%87%D0%B5%D1%80%D0%B5%D0%B7%20ps.png)
 
 ---
 
@@ -43,17 +42,17 @@ GET `/burn` - нагружает одно ядро CPU в бесконечном
 ### Шаг 1.1. Запуск и `/health`
 команда запуска `./api` из папки с бинарником, если перейти на `/health` в браузере, то увидим ответ `ok`
 
-![первый запуск](lab-1-docker/первый запуск апи.png)
+![первый запуск апи.png](%D0%BF%D0%B5%D1%80%D0%B2%D1%8B%D0%B9%20%D0%B7%D0%B0%D0%BF%D1%83%D1%81%D0%BA%20%D0%B0%D0%BF%D0%B8.png)
 
 ### Шаг 1.2. Процесс на хосте
 
 посмотрел процесс на хосте через `ps -eo pid,cmd,user | grep "api"`
 
-![pid на хосте](lab-1-docker/pid на хосте part2.png)
+![pid на хосте part2.png](pid%20%D0%BD%D0%B0%20%D1%85%D0%BE%D1%81%D1%82%D0%B5%20part2.png)
 
 `pid 2032`, после смотрим `uid` пользователя `rvetoshkin` через команду `ps -o pid,uid,user:20,cmd -p 2032`
 
-![uid на хосте](lab-1-docker/uid хост.png)
+![uid хост.png](uid%20%D1%85%D0%BE%D1%81%D1%82.png)![uid на хосте](lab-1-docker/uid хост.png)
 
 получаем `501`
 
@@ -64,7 +63,7 @@ GET `/burn` - нагружает одно ядро CPU в бесконечном
 
 ## Часть 2 — namespaces
 
-![linux meme](lab-1-docker/linux.jpg)
+![linux.jpg](linux.jpg)![linux meme](lab-1-docker/linux.jpg)
 
 
 ### Шаг 2.1. Запуск через `unshare`
@@ -76,7 +75,7 @@ GET `/burn` - нагружает одно ядро CPU в бесконечном
 
 посмотрел флаги через `man unshare` и вывел следующее флаги для `ns unshare --pid --mount --net --uts --ipc --user`
 
-![hostname proccess](lab-1-docker/hostname внутри процесса.png)
+![hostname внутри процесса.png](hostname%20%D0%B2%D0%BD%D1%83%D1%82%D1%80%D0%B8%20%D0%BF%D1%80%D0%BE%D1%86%D0%B5%D1%81%D1%81%D0%B0.png)
 
 и флаги вспомогательные: `--fork --mount-proc --map-root-user`
 
@@ -86,7 +85,8 @@ GET `/burn` - нагружает одно ядро CPU в бесконечном
 
 ### Шаг 2.2. PID namespace
 внутри процесса `pid` == 1, на хосте `pid` == 2790
-![pid proccess](lab-1-docker/pid внутри unshare part2.png)
+
+![pid внутри unshare part2.png](pid%20%D0%B2%D0%BD%D1%83%D1%82%D1%80%D0%B8%20unshare%20part2.png)
 
 ![pid на хосте part2.png](pid%20%D0%BD%D0%B0%20%D1%85%D0%BE%D1%81%D1%82%D0%B5%20part2.png)
 
