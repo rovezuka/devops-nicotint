@@ -1,0 +1,49 @@
+# Генератор нагрузки внутри кластера. Не часть чарта shop: это инструмент наблюдателя.
+# Скрипт берётся из ConfigMap k6-orders (kubectl create configmap ... --from-file=orders.js).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: k6-orders
+  namespace: shop
+  labels:
+    app.kubernetes.io/name: k6
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: k6
+        app.kubernetes.io/managed-by: kubectl
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: k6
+          image: registry.shop.local/k6:2.3.0
+          imagePullPolicy: IfNotPresent
+          args: ["run", "/scripts/orders.js"]
+          env:
+            - name: RATE
+              value: "20"
+            - name: DURATION
+              value: "40m"
+          resources:
+            requests:
+              cpu: 200m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+      volumes:
+        - name: scripts
+          configMap:
+            name: k6-orders
