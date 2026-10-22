@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-dashboard
+  labels:
+    grafana_dashboard: "1"
+data:
+  shop-dashboard.json: |
+    {{- .Files.Get "files/shop-dashboard.json" | nindent 4 }}

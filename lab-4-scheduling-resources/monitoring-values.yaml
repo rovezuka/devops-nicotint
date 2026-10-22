@@ -1,0 +1,8 @@
+prometheus:
+  prometheusSpec:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 700Mi
+      limits:
+        memory: 1200Mi
