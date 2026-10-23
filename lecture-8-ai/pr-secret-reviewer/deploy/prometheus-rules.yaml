@@ -1,0 +1,47 @@
+# PrometheusRule: алерты для PR Secret Reviewer (Лаба 8).
+# Применяется kubectl apply -f prometheus-rules.yaml в namespace monitoring.
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: pr-secret-reviewer-rules
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: pr-secret-reviewer
+      rules:
+        # 1. Webhook недоступен > 2 минут: ревью не запускается вообще
+        - alert: SecretReviewerWebhookDown
+          expr: n8n_webhook_up == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "PR Secret Reviewer webhook is down"
+            description: >-
+              Webhook-эндпоинт n8n не отвечает более 2 минут.
+              Ревью PR не запускается — секреты проходят в репозиторий непроверенными.
+
+        # 2. Ошибки workflow: PR остался без ревью, а владелец не знает
+        - alert: SecretReviewerWorkflowErrors
+          expr: increase(n8n_workflow_runs_total{status="error"}[15m]) > 0
+          labels:
+            severity: warning
+          annotations:
+            summary: "Secret review workflow failed"
+            description: >-
+              За последние 15 минут были ошибочные выполнения workflow.
+              PR, вызвавший ошибку, остался без ревью.
+
+        # 3. Деградация скорости: LLM/MCP тормозят до того, как упадут
+        - alert: SecretReviewerSlowReview
+          expr: n8n_review_duration_seconds > 120
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Secret review is slow"
+            description: >-
+              Полный цикл ревью длится больше 2 минут. Вероятная причина —
+              деградация LLM API или MCP-серверов.

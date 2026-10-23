@@ -1,0 +1,402 @@
+{
+  "name": "My workflow copy",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "github-secret-review",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        -288,
+        16
+      ],
+      "id": "49f9a9d9-4e84-48eb-84c4-5c850e33677f",
+      "name": "Webhook",
+      "webhookId": "fe9d7fbc-d1f2-4cde-9bf8-99f1427c6f03"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"ok\": true, \"message\": \"PR accepted for review\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        352,
+        128
+      ],
+      "id": "a0892c56-53cd-435d-a6fe-2b11c7f98fe3",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst body = raw.body ?? raw;\nconst eventType = raw.headers?.[\"x-github-event\"];\n\n// ping — подтверждение регистрации webhook'а: не PR-событие,\n// отвечаем 200, чтобы GitHub не считал доставку неудачной\nif (eventType === \"ping\") {\n  return [{ json: { skip: true, reason: \"ping acknowledged\" } }];\n}\n\nconst owner = body.repository?.owner?.login;\nconst repo = body.repository?.name;\nconst pullNumber = body.number;\nconst headSha = body.pull_request?.head?.sha;\nconst action = body.action;\n\nconst missing = [];\nif (!owner) missing.push(\"repository.owner.login\");\nif (!repo) missing.push(\"repository.name\");\nif (!pullNumber) missing.push(\"number\");\nif (!headSha) missing.push(\"pull_request.head.sha\");\nif (missing.length > 0) {\n  throw new Error(\n    `Webhook payload is missing required fields: ${missing.join(\", \")}. ` +\n    `Refusing to guess: this workflow must only run on real PR events.`\n  );\n}\n\nreturn [{\n  json: { action, owner, repo, pull_number: pullNumber, head_sha: headSha }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -48,
+        64
+      ],
+      "id": "9f00ad5f-f8bf-42b6-9fc3-fba31963ac07",
+      "name": "Extract PR"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Review PR #{{ $json.pull_number }} in {{ $json.owner }}/{{ $json.repo }}.\nFollow the skill: fetch the diff, scan it, read the policy, classify\nfindings, write the report, return the verdict.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "# Skill: PR Secret Reviewer Agent\n\nТы — агент автоматического ревью pull request'ов на случайно закоммиченные\nсекреты. Ты работаешь в связке с детерминированным сканером и двумя\nMCP-серверами (GitHub и filesystem). Твоя задача — не заменить сканер,\nа дополнить его контекстом и принять итоговое решение.\n\n## Порядок действий (обязателен, не пропускай шаги)\n\n1. **Получи diff PR** через инструмент GitHub MCP (`pull_request_read`).\n   Вход: `owner`, `repo`, `pullNumber`, `method: \"get_files\"`.\n2. **Прогони diff через `scan_diff`** — детерминированный сканер. Не пытайся\n   искать секреты в diff сам: regex-правила сканера — источник истины для\n   находок.\n\n   Формат вызова `scan_diff` (строго, без лишних полей):\n\n   ```json\n   {\n     \"files\": [\n       {\n         \"filename\": \"<путь файла из diff>\",\n         \"added_lines\": [\"<строка целиком>\", \"...\"]\n       }\n     ]\n   }\n   ```\n\n   Правила подготовки аргументов:\n   - `files` — массив по одному элементу на каждый файл из diff;\n   - `filename` — точное имя файла из ответа `pull_request_read`;\n   - `added_lines` — **только добавленные строки** (из patch: строки после\n     `@@ ... @@`, начинающиеся с `+`, без самого `+`);\n   - не добавляй поля `patch`, `status`, `changes` — сканер их не ожидает;\n   - передавай **все** файлы diff за один вызов, не разбивай на несколько.\n3. **Прочитай политику** через filesystem MCP (`read_file`):\n   - `/files/policy/security-policy.md` — правила классификации;\n   - `/files/policy/allowlist.json` — известные безопасные значения.\n4. **Классифицируй каждую находку сканера** в один из классов:\n   - `block` — вероятный реальный секрет (live-токен, приватный ключ);\n   - `warn` — подозрительное значение, требующее человека;\n   - `false_positive` — безопасное значение, подтверждённое контекстом\n     или allowlist.\n5. **Запиши отчёт** через filesystem MCP (`write_file`) в\n   `/files/reports/secret-review-<head-sha>.md`.\n6. **Оставь комментарий в PR** через GitHub MCP (`pull_request_review_write`):\n   краткое резюме ревью — verdict, таблица находок, ссылка на отчёт.\n   Комментарий должен содержать только маски значений, без полных секретов.\n\n   Формат вызова `pull_request_review_write`:\n\n   ```json\n   {\n     \"owner\": \"<owner>\",\n     \"repo\": \"<repo>\",\n     \"pullNumber\": <номер PR>,\n     \"event\": \"COMMENT\",\n     \"method\": \"create\",\n     \"body\": \"<markdown-комментарий>\"\n   }\n   ```\n\n   `event: \"COMMENT\"` — обязательно: это review-комментарий без\n   approve/request-changes, просто текст в тред PR.\n   В `body` включи: verdict, однострочное обоснование, таблицу находок\n   (файл, строка, детектор, класс, маска) и путь к отчёту.\n7. **Верни итоговый verdict и заверши работу.** После успешного комментария\n   к PR (шаг 6) задача считается **полностью выполненной**. Немедленно верни\n   финальный JSON-ответ и **заверши работу**: не вызывай больше ни одного\n   инструмента, не пиши дополнительных комментариев, не повторяй шаги.\n   Один PR = один отчёт = один комментарий = один финальный ответ.\n\n## Правила безопасности (нарушение недопустимо)\n\n- **Никогда не выводи полное значение секрета** — ни в отчёт, ни в ответ,\n  ни в промежуточные рассуждения. Используй только маски, которые вернул\n  сканер (например `sk-l***ret`). Если сканер не вернул маску — выведи\n  только имя файла и номер строки.\n- **Асимметрия доверия к сканеру.** Ты можешь переклассифицировать находку\n  `warn` → `false_positive` (например, значение читается из окружения:\n  `os.getenv(...)` — это не утечка). Но ты **не можешь** понизить `block`\n  до `false_positive` или `warn`. Если сканер пометил находку как `block` —\n  итоговый вердикт `block`, без исключений.\n- **Allowlist применяется только по точному совпадению значения.** Если\n  находка не совпала с allowlist целиком — она остаётся находкой.\n- **Не изменяй содержимое репозитория.** GitHub MCP используется для чтения\n  (diff, метаданные PR) и для единственного write-действия: комментария\n  к PR (шаг 6). Коммиты, ветки, файлы и настройки репозитория менять нельзя.\n\n## Формат отчёта\n\nОтчёт в Markdown, обязательные поля:\n\n```markdown\n# Secret review: PR #<number> (<repo>)\n\n- **Head SHA:** <sha>\n- **Verdict:** block | warn | pass\n- **Rationale:** <1–2 предложения>\n\n## Findings\n\n| # | Файл | Строка | Детектор | Класс | Маска |\n|---|------|--------|----------|-------|-------|\n\n## Remediation\n\n<рекомендации по каждой block/warn находке>\n```\n\n## Примеры классификации\n\n- `PAYMENTS_API_TOKEN=sk-live-...` в `config/real-secret.env` → `block`\n  (формат live-токена, сканер прав).\n- `token = os.getenv(\"PAYMENTS_API_TOKEN\")` → `false_positive`\n  (значение берётся из окружения, в diff нет секрета).\n- `PAYMENTS_API_TOKEN=REPLACE_ME` в `.env.example` → `false_positive`\n  (точное совпадение с allowlist).\n- `Example token: sk-demo-not-real` в `docs/` → `false_positive`\n  (точное совпадение с allowlist).\n\n\nВ финальном ответе верни строго JSON указанной схемы, без дополнительного текста:\n{\n  \"verdict\": \"block | warn | pass\",\n  \"pr\": \"owner/repo#number\",\n  \"report_path\": \"/files/reports/secret-review-<sha>.md\"\n}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        576,
+        144
+      ],
+      "id": "179e7490-0c7e-4fa8-aefd-1302f654e592",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "deepseek/deepseek-v4.1-flash-1017",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        240,
+        352
+      ],
+      "id": "a55812f6-c426-41b0-8ba9-eb083b839e2b",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "bHKQ8Ftu150LYUOI",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "connectionType": "http",
+        "operation": "executeTool",
+        "toolName": "pull_request_read",
+        "toolParameters": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Tool_Parameters', `{\n  \"Tool_Parameters\": {\n    \"owner\": \"owner\",\n    \"repo\": \"repo\",\n    \"pullNumber\": 1,\n    \"method\": \"get_files\"\n  }\n}\n`, 'json') }}"
+      },
+      "type": "n8n-nodes-mcp.mcpClientTool",
+      "typeVersion": 1,
+      "position": [
+        464,
+        448
+      ],
+      "id": "d5c32f14-5bfc-4436-bd52-6121d36e89f6",
+      "name": "pull_request_read",
+      "credentials": {
+        "mcpClientHttpApi": {
+          "id": "3alXECGpgaQSJGXP",
+          "name": "Client (HTTP Streamable) account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeTool",
+        "toolName": "read_file",
+        "toolParameters": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Tool_Parameters', `{\n  \"Tool_Parameters\": {\n    \"path\": \"/path/to/file\"\n  }\n}`, 'json') }}"
+      },
+      "type": "n8n-nodes-mcp.mcpClientTool",
+      "typeVersion": 1,
+      "position": [
+        368,
+        384
+      ],
+      "id": "f797e1f4-296a-4fa7-bf1e-bd6b47e8893a",
+      "name": "read_file",
+      "credentials": {
+        "mcpClientApi": {
+          "id": "H22HIjkBGyVqZvcZ",
+          "name": "Client (STDIO) account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeTool",
+        "toolName": "write_file",
+        "toolParameters": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Tool_Parameters', `{\n  \"Tool_Parameters\": {\n    \"path\": \"/path/to/file\"\n  }\n}`, 'json') }}"
+      },
+      "type": "n8n-nodes-mcp.mcpClientTool",
+      "typeVersion": 1,
+      "position": [
+        560,
+        368
+      ],
+      "id": "20a02185-13f3-4142-86ce-ed1353b911e3",
+      "name": "write_file",
+      "credentials": {
+        "mcpClientApi": {
+          "id": "H22HIjkBGyVqZvcZ",
+          "name": "Client (STDIO) account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "Deterministic secret scanner. Input: JSON object {\"files\": [{\"filename\": \"...\", \"added_lines\": [\"...\", ...]}]}. Returns findings with masked values and severity (block/warn). Severity \"block\" cannot be downgraded.",
+        "jsCode": "// Tool: scan_diff — детерминированный сканер секретов\nconst input = $input.first().json;\n\n// Аргументы от агента могут прийти объектом или JSON-строкой в query\nlet args = input.query ?? input;\nif (typeof args === \"string\") {\n  try {\n    args = JSON.parse(args);\n  } catch (error) {\n    throw new Error(`scan_diff: cannot parse arguments as JSON: ${error.message}`);\n  }\n}\n\n// Нормализация входа: files|diff, filename|path, added_lines: string[] | {line, content}[]\nconst rawFiles = args.files ?? args.diff ?? [];\nif (!Array.isArray(rawFiles) || rawFiles.length === 0) {\n  throw new Error(\n    \"scan_diff: expected a non-empty array 'files' of {filename, added_lines}\"\n  );\n}\n\nconst files = rawFiles.map((f) => ({\n  path: f.path ?? f.filename ?? \"unknown\",\n  added_lines: (f.added_lines ?? []).map((l) =>\n    typeof l === \"string\" ? l : (l.content ?? String(l))\n  ),\n}));\n\nconst rules = [\n  { id: \"private-key\", re: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/, severity: \"block\" },\n  { id: \"github-token\", re: /\\b(?<val>ghp_[A-Za-z0-9]{20,})\\b/, severity: \"block\" },\n  { id: \"aws-access-key\", re: /\\b(?<val>AKIA[0-9A-Z]{16})\\b/, severity: \"block\" },\n  { id: \"stripe-like-live-key\", re: /\\b(?<val>sk-live-[A-Za-z0-9_-]{8,})\\b/, severity: \"block\" },\n  {\n    id: \"generic-secret-assignment\",\n    re: /\\b(?<name>[\\w-]*(?:password|secret|token|api[_-]?key)[\\w-]*)\\s*[:=]\\s*(?:\"(?<dq>[^\"]{6,})\"|'(?<sq>[^']{6,})'|(?<bare>[^\\s#]{6,}))/i,\n    severity: \"warn\",\n  },\n  { id: \"connection-string-password\", re: /\\b(?:password|pwd)\\s*=\\s*(?<val>[^; \\n]+)/i, severity: \"warn\" },\n];\n\nfunction maskValue(s) {\n  if (s.length <= 10) return \"***\";\n  return s.slice(0, 4) + \"***\" + s.slice(-3);\n}\n\nconst findings = [];\n\nfor (const file of files) {\n  file.added_lines.forEach((line, idx) => {\n    for (const rule of rules) {\n      const m = line.match(rule.re);\n      if (!m) continue;\n\n      const value =\n        m.groups?.val ?? m.groups?.dq ?? m.groups?.sq ?? m.groups?.bare ?? m[0];\n      const maskedValue = maskValue(value);\n\n      findings.push({\n        rule_id: rule.id,\n        path: file.path,\n        line_number_in_added_block: idx + 1,\n        matched_masked: maskedValue,\n        line_preview: line.replace(value, maskedValue).slice(0, 200),\n        severity: rule.severity,\n      });\n      break;\n    }\n  });\n}\n\nreturn JSON.stringify({ findings_count: findings.length, findings }, null, 2);",
+        "specifyInputSchema": true,
+        "schemaType": "manual",
+        "inputSchema": "{\"files\": \n  [\n    {\n      \"filename\": \"...\", \n      \"added_lines\": [\"...\", \"...\"]\n    }\n  ]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        768,
+        416
+      ],
+      "id": "bed0dbd0-df65-43c1-bec1-a88555bf36b8",
+      "name": "scan_diff"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"verdict\": \"block | warn | pass\",\n  \"pr\": \"owner/repo#number\",\n  \"report_path\": \"/files/reports/secret-review-<sha>.md\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        896,
+        416
+      ],
+      "id": "64e30932-96e0-4237-873b-c853c8bada37",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "50b3acc8-a37a-4433-bbbb-906c0a7010aa",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        176,
+        64
+      ],
+      "id": "8b0c7827-bd73-478d-8efe-97807603dd0d",
+      "name": "If ping"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"ok\": true, \"message\": \"ping acknowledged\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        544,
+        -16
+      ],
+      "id": "49b3ee7d-4c06-41e9-8b62-ac721bebce3b",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "connectionType": "http",
+        "operation": "executeTool",
+        "toolName": "pull_request_review_write",
+        "toolParameters": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Tool_Parameters', `{\n  \"Tool_Parameters\": {\n     \"owner\": \"<owner>\",\n     \"repo\": \"<repo>\",\n     \"pullNumber\": <PR number>,\n     \"event\": \"COMMENT\",\n     \"method\": \"create\",\n     \"body\": \"<markdown-text>\"\n  }\n}`, 'json') }}"
+      },
+      "type": "n8n-nodes-mcp.mcpClientTool",
+      "typeVersion": 1,
+      "position": [
+        656,
+        464
+      ],
+      "id": "f46d7ac4-c8c9-4985-9e28-1a87a152bf12",
+      "name": "pull_request_review_write",
+      "credentials": {
+        "mcpClientHttpApi": {
+          "id": "3alXECGpgaQSJGXP",
+          "name": "Client (HTTP Streamable) account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract PR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract PR": {
+      "main": [
+        [
+          {
+            "node": "If ping",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        []
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "pull_request_read": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "read_file": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "write_file": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "scan_diff": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If ping": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "pull_request_review_write": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "7691f8d2-04dd-43da-b2f3-9500f6958c98",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d9fad2de727820e6c73b58c8aa1c51c3b7a3df3d8ddd3ba9e711069645c758a8"
+  },
+  "nodeGroups": [],
+  "id": "hDO5qfm5PgmtuDre",
+  "tags": []
+}

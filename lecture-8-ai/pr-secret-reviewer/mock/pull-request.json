@@ -1,0 +1,50 @@
+{
+  "action": "opened",
+  "number": 42,
+  "repository": "y0rikkk/containerization-and-orchestration",
+  "sender": "demo-developer",
+  "pull_request": {
+    "title": "Add external API integration",
+    "head": {
+      "ref": "feature/external-api",
+      "sha": "1111111111111111111111111111111111111111"
+    },
+    "base": {
+      "ref": "main",
+      "sha": "2222222222222222222222222222222222222222"
+    },
+    "changed_files": [
+      "lecture-8-ai/pr-secret-reviewer/mock/real-secret.env",
+      "lecture-8-ai/pr-secret-reviewer/mock/client.py",
+      "docs/integration.md",
+      "lecture-8-ai/pr-secret-reviewer/mock/.env.example"
+    ],
+    "diff": [
+      {
+        "path": "lecture-8-ai/pr-secret-reviewer/mock/real-secret.env",
+        "added_lines": [
+          "PAYMENTS_API_TOKEN=sk-live-demo-not-a-real-secret"
+        ]
+      },
+      {
+        "path": "lecture-8-ai/pr-secret-reviewer/mock/client.py",
+        "added_lines": [
+          "PAYMENTS_API_TOKEN = os.getenv(\"PAYMENTS_API_TOKEN\")",
+          "PAYMENTS_ENDPOINT = \"https://payments.example.test\""
+        ]
+      },
+      {
+        "path": "docs/integration.md",
+        "added_lines": [
+          "Example token: sk-demo-not-real"
+        ]
+      },
+      {
+        "path": "lecture-8-ai/pr-secret-reviewer/mock/.env.example",
+        "added_lines": [
+          "PAYMENTS_API_TOKEN=REPLACE_ME"
+        ]
+      }
+    ]
+  }
+}
