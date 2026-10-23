@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "documentation-placeholder",
+      "path_glob": "docs/**",
+      "allowed_values": [
+        "REPLACE_ME",
+        "sk-demo-not-real",
+        "example-token"
+      ],
+      "reason": "Explicit placeholders in documentation are not credentials."
+    },
+    {
+      "id": "example-environment-file",
+      "path_glob": "**/.env.example",
+      "allowed_values": [
+        "REPLACE_ME",
+        "changeme"
+      ],
+      "reason": "Example environment files may document required variable names."
+    }
+  ]
+}

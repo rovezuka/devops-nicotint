@@ -1,0 +1,15 @@
+# Additional scrape config для kube-prometheus-stack (Лаба 2).
+# Подключается через prometheus.spec.additionalScrapeConfigs
+# при helm upgrade стека мониторинга (см. README кейса).
+
+prometheus:
+  prometheusSpec:
+    additionalScrapeConfigs:
+      - job_name: n8n-exporter
+        scrape_interval: 30s
+        static_configs:
+          - targets:
+              - 192.168.49.1:9200
+            labels:
+              service: pr-secret-reviewer
+              environment: local

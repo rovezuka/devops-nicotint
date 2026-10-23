@@ -1,0 +1,45 @@
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    ports:
+      - "5678:5678"
+    environment:
+      N8N_HOST: localhost
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      N8N_SECURE_COOKIE: "false"
+      WEBHOOK_URL: http://localhost:5678/
+      GENERIC_TIMEZONE: UTC
+      N8N_RESTRICT_FILE_ACCESS_TO: /files/policy;/files/reports
+      N8N_COMMUNITY_PACKAGES_ENABLED: "true"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./policy:/files/policy:ro
+      - ./reports:/files/reports
+    depends_on:
+      - github-mcp
+
+  github-mcp:
+    image: ghcr.io/github/github-mcp-server:latest
+    command: ["http"]
+    environment:
+      GITHUB_PERSONAL_ACCESS_TOKEN: ${GITHUB_PERSONAL_ACCESS_TOKEN:?set GITHUB_PERSONAL_ACCESS_TOKEN in .env next to docker-compose.yml}
+      GITHUB_TOOLSETS: pull_requests,repos
+    ports:
+      - "8080:8082"
+
+  exporter:
+    build: ./exporter
+    environment:
+      N8N_BASE_URL: http://n8n:5678
+      N8N_API_TOKEN: ${N8N_API_TOKEN:?set N8N_API_TOKEN in .env next to docker-compose.yml}
+      WEBHOOK_PATH: /webhook/github-secret-review
+      SCRAPE_INTERVAL: "30"
+      WORKFLOW_ID: ${N8N_WORKFLOW_ID:-}
+    ports:
+      - "9200:9200"
+    depends_on:
+      - n8n
+
+volumes:
+  n8n_data:
