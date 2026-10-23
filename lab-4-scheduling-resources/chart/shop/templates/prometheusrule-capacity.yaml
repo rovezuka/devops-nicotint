@@ -1,0 +1,48 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Release.Name }}-capacity
+  labels:
+    release: monitoring
+    app.kubernetes.io/name: shop
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  groups:
+    - name: shop-capacity
+      rules:
+        - alert: ShopOrderLatencySLOBreach
+          expr: |
+            histogram_quantile(0.95,
+              sum by (le) (rate(http_request_duration_seconds_bucket{namespace="shop", handler="order"}[5m]))
+            ) > {{ .Values.alerts.orderLatencyP95Seconds }}
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Нарушен SLA оформления заказа"
+            description: "p95 POST /order выше {{ .Values.alerts.orderLatencyP95Seconds }} с уже 5 минут."
+
+        - alert: ShopCriticalPathCPUThrottled
+          expr: |
+            max by (pod, container) (
+              rate(container_cpu_cfs_throttled_periods_total{namespace="shop", container=~"api|postgres"}[5m])
+              /
+              rate(container_cpu_cfs_periods_total{namespace="shop", container=~"api|postgres"}[5m])
+            ) > {{ .Values.alerts.throttledRatio }}
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Критический путь упирается в лимит CPU"
+            description: "{{`{{ $labels.container }}`}} в поде {{`{{ $labels.pod }}`}} троттлится в {{`{{ $value | humanizePercentage }}`}} периодов."
+
+        - alert: ShopContainerOOMKilled
+          expr: |
+            max by (pod, container) (increase(kube_pod_container_status_restarts_total{namespace="shop"}[10m])) > 0
+            and on (pod, container)
+            max by (pod, container) (kube_pod_container_status_last_terminated_reason{namespace="shop", reason="OOMKilled"}) == 1
+          labels:
+            severity: warning
+          annotations:
+            summary: "Контейнер убит по собственному лимиту памяти"
+            description: "{{`{{ $labels.container }}`}} в поде {{`{{ $labels.pod }}`}} перезапускался из-за OOMKilled: лимит памяти меньше реального потребления."

@@ -13,12 +13,11 @@ spec:
   storage:
     size: {{ .Values.postgres.storage.size | quote }}
 
+  priorityClassName: {{ .Release.Name }}-critical
+  enablePDB: {{ .Values.postgres.enablePDB }}
+
   resources:
-    requests:
-      cpu: {{ .Values.postgres.resources.requests.cpu | quote }}
-      memory: {{ .Values.postgres.resources.requests.memory | quote }}
-    limits:
-      memory: {{ .Values.postgres.resources.limits.memory | quote }}
+    {{- toYaml .Values.postgres.resources | nindent 4 }}
 
   inheritedMetadata:
     labels:

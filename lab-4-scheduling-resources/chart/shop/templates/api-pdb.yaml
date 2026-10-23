@@ -1,0 +1,14 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+    name: {{ .Release.Name }}-api
+    labels:
+      app.kubernetes.io/name: shop
+      app.kubernetes.io/component: api
+      app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+    maxUnavailable: {{ .Values.api.pdb.maxUnavailable }}
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: shop
+        app.kubernetes.io/component: api

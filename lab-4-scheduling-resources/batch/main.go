@@ -14,6 +14,10 @@ import (
 	"time"
 )
 
+// hold — глобальная переменная: GC всегда считает её живой и не освобождает чанки.
+// Локальную переменную компилятор мог признать мёртвой после цикла набора.
+var hold [][]byte
+
 func envInt(name string, def int) int {
 	if v, err := strconv.Atoi(os.Getenv(name)); err == nil {
 		return v
@@ -47,7 +51,6 @@ func main() {
 		go burn()
 	}
 
-	var hold [][]byte
 	for held := 0; held < memMB; held += stepMB {
 		chunk := make([]byte, stepMB<<20)
 		// Пишем в каждую страницу, иначе ядро не выделит физическую память.
