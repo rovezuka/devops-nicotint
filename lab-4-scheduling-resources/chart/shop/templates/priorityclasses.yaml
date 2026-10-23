@@ -1,0 +1,23 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+    name: {{ .Release.Name }}-critical
+    labels:
+      app.kubernetes.io/name: shop
+      app.kubernetes.io/managed-by: {{ .Release.Service }}
+value: {{ .Values.priority.critical }}
+preemptionPolicy: PreemptLowerPriority
+globalDefault: false
+description: "Критический путь заказа: api, postgres"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+    name: {{ .Release.Name }}-low
+    labels:
+      app.kubernetes.io/name: shop
+      app.kubernetes.io/managed-by: {{ .Release.Service }}
+value: {{ .Values.priority.low }}
+preemptionPolicy: Never
+globalDefault: false
+description: "Второстепенная фоновая нагрузка: batch"

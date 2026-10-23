@@ -19,6 +19,7 @@ spec:
         app.kubernetes.io/component: batch
         app.kubernetes.io/managed-by: {{ .Release.Service }}
     spec:
+      priorityClassName: {{ .Release.Name }}-low
       containers:
         - name: batch
           image: "{{ .Values.registry }}/{{ .Values.batch.image.repository }}:{{ .Values.batch.image.tag }}"

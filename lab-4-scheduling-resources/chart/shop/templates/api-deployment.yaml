@@ -24,6 +24,7 @@ spec:
         app.kubernetes.io/component: api
         app.kubernetes.io/managed-by: {{ .Release.Service }}
     spec:
+      priorityClassName: {{ .Release.Name }}-critical
       {{- with .Values.api.spread }}
       {{- if eq .mode "topologySpread" }}
       topologySpreadConstraints:
