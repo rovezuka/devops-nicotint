@@ -1,0 +1,5 @@
+# Коварная: «забыли» реальный порт kube-apiserver (8443) — заказы идут, postgres тихо теряет связь с API
+networkPolicy:
+  kubernetesApi:
+    ports:
+      - 443

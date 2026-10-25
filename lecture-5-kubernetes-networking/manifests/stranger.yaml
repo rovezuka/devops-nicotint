@@ -1,0 +1,19 @@
+# «Посторонний» под для проверки матрицы (Часть 5): в namespace default, где политик shop нет —
+# его egress не ограничен, поэтому отказ к postgres/worker доказывает именно ingress-защиту на стороне shop.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: stranger
+  namespace: default
+  labels:
+    app.kubernetes.io/name: stranger
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+    - name: stranger
+      image: registry.shop.local/api:1.0.0
+      resources:
+        requests: {cpu: 10m, memory: 16Mi}
+        limits: {memory: 32Mi}

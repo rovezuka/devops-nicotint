@@ -1,0 +1,181 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $np := .Values.networkPolicy }}
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dns-egress
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $np.namespaces.kubeSystem | quote }}
+          podSelector:
+            matchLabels:
+              {{ $np.labels.corednsName }}: {{ $np.coredns.name | quote }}
+      ports:
+        - protocol: UDP
+          port: {{ $np.ports.dns }}
+        - protocol: TCP
+          port: {{ $np.ports.dns }}
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-ingress
+spec:
+  podSelector:
+    matchLabels:
+      {{ $np.labels.component }}: api
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: {{ $np.ports.app }}
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-ingress
+spec:
+  podSelector:
+    matchLabels:
+      {{ $np.labels.postgresCluster }}: {{ $np.postgres.clusterName | quote }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{ $np.labels.component }}: api
+        - podSelector:
+            matchLabels:
+              {{ $np.labels.component }}: worker
+      ports:
+        - protocol: TCP
+          port: {{ $np.ports.postgres }}
+
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $np.namespaces.cnpg | quote }}
+          podSelector:
+            matchLabels:
+              {{ $np.labels.prometheusName }}: {{ $np.cnpgOperator.name | quote }}
+      ports:
+        - protocol: TCP
+          port: {{ $np.ports.postgresStatus }}
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: metrics-ingress
+spec:
+  podSelector:
+    matchExpressions:
+      - key: {{ $np.labels.component | quote }}
+        operator: In
+        values:
+          - api
+          - worker
+          - loadgen
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $np.namespaces.monitoring | quote }}
+          podSelector:
+            matchLabels:
+              {{ $np.labels.prometheusName }}: {{ $np.prometheus.name | quote }}
+      ports:
+        - protocol: TCP
+          port: {{ $np.ports.app }}
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: app-egress
+spec:
+  podSelector:
+    matchExpressions:
+      - key: {{ $np.labels.component | quote }}
+        operator: In
+        values:
+          - api
+          - worker
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              {{ $np.labels.postgresCluster }}: {{ $np.postgres.clusterName | quote }}
+      ports:
+        - protocol: TCP
+          port: {{ $np.ports.postgres }}
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: loadgen-egress
+spec:
+  podSelector:
+    matchLabels:
+      {{ $np.labels.component }}: loadgen
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              {{ $np.labels.component }}: api
+      ports:
+        - protocol: TCP
+          port: {{ $np.ports.app }}
+
+---
+# Egress postgres → Kubernetes API. Стандартная NetworkPolicy здесь не годится: Cilium видит пакет уже после DNAT
+# (адрес ноды с apiserver), а адреса нод кластера для Cilium — identity host/remote-node, которые ipBlock не выбирает.
+# Поэтому CiliumNetworkPolicy с сущностью kube-apiserver: Cilium сам знает, где apiserver.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: postgres-egress-api
+spec:
+  endpointSelector:
+    matchLabels:
+      {{ $np.labels.postgresCluster }}: {{ $np.postgres.clusterName | quote }}
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            {{- range $np.kubernetesApi.ports }}
+            - port: {{ . | quote }}
+              protocol: TCP
+            {{- end }}
+
+{{- end }}

@@ -1,0 +1,4 @@
+# Неверные метки в allow-правиле: селектор cnpg.io/cluster больше не совпадает с подом postgres
+networkPolicy:
+  postgres:
+    clusterName: shop-database

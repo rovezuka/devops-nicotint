@@ -1,0 +1,62 @@
+[2026-10-22 00:30:28] Удаляю pod/shop-worker-7b44d8db-6bv96
+pod "shop-worker-7b44d8db-6bv96" deleted from shop namespace
+[2026-10-22 00:30:48] Удаляю pod/shop-api-7fff7cf66d-qs54d
+pod "shop-api-7fff7cf66d-qs54d" deleted from shop namespace
+[2026-10-22 00:31:09] Удаляю pod/shop-api-7fff7cf66d-26fd9
+pod "shop-api-7fff7cf66d-26fd9" deleted from shop namespace
+[2026-10-22 00:31:29] Удаляю pod/shop-api-7fff7cf66d-8nr9k
+pod "shop-api-7fff7cf66d-8nr9k" deleted from shop namespace
+[2026-10-22 00:31:49] Удаляю pod/shop-api-7fff7cf66d-7nh7g
+pod "shop-api-7fff7cf66d-7nh7g" deleted from shop namespace
+[2026-10-22 00:32:09] Удаляю pod/shop-worker-7b44d8db-mtdrm
+pod "shop-worker-7b44d8db-mtdrm" deleted from shop namespace
+[2026-10-22 00:32:30] Удаляю pod/shop-worker-7b44d8db-9879f
+pod "shop-worker-7b44d8db-9879f" deleted from shop namespace
+[2026-10-22 00:32:50] Удаляю pod/shop-worker-7b44d8db-cf7cn
+pod "shop-worker-7b44d8db-cf7cn" deleted from shop namespace
+[2026-10-22 00:33:10] Удаляю pod/shop-worker-7b44d8db-vx8xz
+pod "shop-worker-7b44d8db-vx8xz" deleted from shop namespace
+[2026-10-22 00:33:31] Удаляю pod/shop-api-7fff7cf66d-wgnlj
+pod "shop-api-7fff7cf66d-wgnlj" deleted from shop namespace
+[2026-10-22 00:33:51] Удаляю pod/shop-api-7fff7cf66d-42gjr
+pod "shop-api-7fff7cf66d-42gjr" deleted from shop namespace
+[2026-10-22 00:34:11] Удаляю pod/shop-api-7fff7cf66d-xdfks
+pod "shop-api-7fff7cf66d-xdfks" deleted from shop namespace
+[2026-10-22 00:34:31] Удаляю pod/shop-api-7fff7cf66d-hdsjl
+pod "shop-api-7fff7cf66d-hdsjl" deleted from shop namespace
+[2026-10-22 00:34:52] Удаляю pod/shop-worker-7b44d8db-gcnwr
+pod "shop-worker-7b44d8db-gcnwr" deleted from shop namespace
+[2026-10-22 00:35:12] Удаляю pod/shop-api-7fff7cf66d-rdhsw
+pod "shop-api-7fff7cf66d-rdhsw" deleted from shop namespace
+[2026-10-22 00:35:32] Удаляю pod/shop-api-7fff7cf66d-qnmmt
+pod "shop-api-7fff7cf66d-qnmmt" deleted from shop namespace
+[2026-10-22 00:35:52] Удаляю pod/shop-api-7fff7cf66d-bwphx
+pod "shop-api-7fff7cf66d-bwphx" deleted from shop namespace
+[2026-10-22 00:36:13] Удаляю pod/shop-worker-7b44d8db-fq5zf
+pod "shop-worker-7b44d8db-fq5zf" deleted from shop namespace
+[2026-10-22 00:36:33] Удаляю pod/shop-api-7fff7cf66d-zmhl8
+pod "shop-api-7fff7cf66d-zmhl8" deleted from shop namespace
+[2026-10-22 00:36:54] Удаляю pod/shop-api-7fff7cf66d-fsrjg
+pod "shop-api-7fff7cf66d-fsrjg" deleted from shop namespace
+[2026-10-22 00:37:14] Удаляю pod/shop-api-7fff7cf66d-xz8jc
+pod "shop-api-7fff7cf66d-xz8jc" deleted from shop namespace
+[2026-10-22 00:37:34] Удаляю pod/shop-worker-7b44d8db-r79zq
+pod "shop-worker-7b44d8db-r79zq" deleted from shop namespace
+[2026-10-22 00:37:55] Удаляю pod/shop-api-7fff7cf66d-p9t2v
+pod "shop-api-7fff7cf66d-p9t2v" deleted from shop namespace
+[2026-10-22 00:38:15] Удаляю pod/shop-worker-7b44d8db-hz46w
+pod "shop-worker-7b44d8db-hz46w" deleted from shop namespace
+[2026-10-22 00:38:35] Удаляю pod/shop-worker-7b44d8db-z29r4
+pod "shop-worker-7b44d8db-z29r4" deleted from shop namespace
+[2026-10-22 00:38:55] Удаляю pod/shop-api-7fff7cf66d-znw5n
+pod "shop-api-7fff7cf66d-znw5n" deleted from shop namespace
+[2026-10-22 00:39:16] Удаляю pod/shop-api-7fff7cf66d-hwxdr
+pod "shop-api-7fff7cf66d-hwxdr" deleted from shop namespace
+[2026-10-22 00:39:36] Удаляю pod/shop-worker-7b44d8db-5bqq9
+pod "shop-worker-7b44d8db-5bqq9" deleted from shop namespace
+[2026-10-22 00:39:56] Удаляю pod/shop-worker-7b44d8db-zq6nf
+pod "shop-worker-7b44d8db-zq6nf" deleted from shop namespace
+[2026-10-22 00:40:17] Удаляю pod/shop-api-7fff7cf66d-8tcns
+pod "shop-api-7fff7cf66d-8tcns" deleted from shop namespace
+[2026-10-22 00:40:37] Удаляю pod/shop-api-7fff7cf66d-s5grm
+pod "shop-api-7fff7cf66d-s5grm" deleted from shop namespace
