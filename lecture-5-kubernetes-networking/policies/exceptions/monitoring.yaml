@@ -1,0 +1,31 @@
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: monitoring-stack
+  namespace: kyverno
+spec:
+  exceptions:
+    - policyName: trusted-registry
+      ruleNames:
+        - check-image-registry
+        - autogen-check-image-registry
+    - policyName: require-resources
+      ruleNames:
+        - check-resources
+        - autogen-check-resources
+    - policyName: require-labels
+      ruleNames:
+        - check-labels
+        - autogen-check-labels
+  match:
+    any:
+      - resources:
+          namespaces:
+            - monitoring
+          kinds:
+            - Pod
+            - Deployment
+            - StatefulSet
+            - DaemonSet
+            - Job
+            - ReplicaSet

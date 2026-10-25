@@ -1,0 +1,18 @@
+# Сетевые метрики Hubble (Лаба 5, Часть 7): сервис hubble-metrics живёт в kube-system (ставится с Cilium),
+# ServiceMonitor — в namespace релиза; Prometheus подхватывает его по метке release: monitoring.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hubble-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - kube-system
+  selector:
+    matchLabels:
+      k8s-app: hubble
+  endpoints:
+    - port: hubble-metrics

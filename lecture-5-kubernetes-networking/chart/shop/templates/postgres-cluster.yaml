@@ -1,0 +1,31 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Release.Name }}-db
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  instances: {{ .Values.postgres.instances }}
+
+  imageName: {{ .Values.postgres.imageName | quote }}
+
+  storage:
+    size: {{ .Values.postgres.storage.size | quote }}
+
+  resources:
+    requests:
+      cpu: {{ .Values.postgres.resources.requests.cpu | quote }}
+      memory: {{ .Values.postgres.resources.requests.memory | quote }}
+    limits:
+      memory: {{ .Values.postgres.resources.limits.memory | quote }}
+
+  {{- with .Values.postgres.nodeSelector }}
+  affinity:
+    nodeSelector:
+      {{- toYaml . | nindent 6 }}
+  {{- end }}
+
+  inheritedMetadata:
+    labels:
+      {{- toYaml .Values.postgres.labels | nindent 6 }}

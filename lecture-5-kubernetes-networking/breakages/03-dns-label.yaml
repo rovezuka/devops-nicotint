@@ -1,0 +1,4 @@
+# Отсутствует разрешение на DNS: селектор CoreDNS не совпадает ни с одним подом
+networkPolicy:
+  coredns:
+    name: kube-dns-broken

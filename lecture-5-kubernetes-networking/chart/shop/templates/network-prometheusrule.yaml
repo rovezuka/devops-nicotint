@@ -1,0 +1,54 @@
+# Сетевые алерты (Лаба 5, Часть 7)
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: shop-network-alerts
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: shop.network
+      rules:
+        # Порог 0.1 — откалиброван по реальному сбою: при блокировке DNS было всего 0.38 отказов/с (Hubble считает
+        # вердикт на поток, клиент ждёт таймаута перед повтором); исходный 0.5 был придуман и не сработал.
+        # Отклонённый политиками трафик, где shop с любой стороны: исходящий из shop (в т.ч. к kube-apiserver/миру,
+        # у которых destination_namespace="") + входящий в shop из других namespace.
+        - alert: ShopPolicyDrops
+          expr: |
+            (
+              sum(rate(hubble_policy_verdicts_total{action="dropped", source_namespace="shop"}[5m]))
+              +
+              (sum(rate(hubble_policy_verdicts_total{action="dropped", destination_namespace="shop", source_namespace!="shop"}[5m])) or vector(0))
+            ) > 0.1
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Network policies drop traffic in shop"
+            description: "More than 0.1 policy-dropped flows/sec involving namespace shop for 2 minutes — wrong selector, port or missing allow rule."
+
+        # DNS заблокирован политикой: запросы не доходят до CoreDNS, поэтому метрики CoreDNS этот сбой не видят.
+        - alert: ShopDNSBlocked
+          expr: |
+            sum(rate(hubble_policy_verdicts_total{action="dropped", destination="kube-dns"}[5m])) > 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "DNS traffic is being dropped"
+            description: "Traffic to kube-dns is being dropped by network policy — name resolution in the cluster is broken."
+
+        # Соединения без ответа глазами клиента: code="0" — HTTP-ответа не было (таймаут, отказ соединения, DNS).
+        - alert: ShopClientConnectionFailures
+          expr: |
+            (sum(rate(loadgen_requests_total{namespace="shop", result="error", code="0"}[5m])) or vector(0))
+            /
+            clamp_min(sum(rate(loadgen_requests_total{namespace="shop"}[5m])), 0.001)
+            > 0.05
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Client requests to api get no response"
+            description: "More than 5% of client requests to api end without any HTTP response (timeout / connection refused / DNS) for 2 minutes."
